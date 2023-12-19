@@ -19,7 +19,7 @@
 """:"
 if [ -f /usr/bin/sw_vers ]; then
 WHICH='which'
-elif [ -f /usr/bin/which ]; then
+elif [ -f /usr/bin/which ]; Fthen
 WHICH='/usr/bin/which'
 elif [ -f /bin/which ]; then
 WHICH='/bin/which'
@@ -1171,6 +1171,38 @@ class AppBase(object):
             .__tagMsg__(AppBase.LIGHT_AMBER,AppBase.LIGHT_BLUE)
         self.prn("%s" % (self.__formattedMsg__()))
         return self
+
+    def install_libcrypto(self):
+        if self.osVersion().startswith('Alpine'):
+            result = self.install_package('libcrypto1.1', ['/usr/lib/libcrypto.so'])
+        else:
+            result = self.install_package('libssl-dev', ['/usr/lib/x86_64-linux-gnu/libcrypto.so'])
+        return result
+
+    def install_libinih(self):
+        if self.is_alpine():
+            result = self.install_package('inih-dev', ['/usr/lib/libinih.so'])
+        else:
+            result = self.install_package('libinih-dev', ['/usr/lib/x86_64-linux-gnu/libinih.so'])
+        return result
+
+    def install_libpcre2(self):
+        if self.is_alpine():
+            result = self.install_package('pcre2-dev', ['/usr/lib/libpcre2-8.so.0'])
+        else:
+            result = self.install_package('libpcre2-dev', ['/usr/lib/x86_64-linux-gnu/libpcre2-32.so'])
+        return result
+
+    def install_libsqlite3_dev(self):
+        if self.is_alpine():
+            result = self.install_package('sqlite-dev', ['/usr/lib/libsqlite3.so'])
+        else:
+            result = self.install_package('libsqlite3-dev', ['/usr/lib/x86_64-linux-gnu/libsqlite3.so'])
+        return result
+
+    def install_libsqlite3(self):
+        result = self.install_package('sqlite3', ['/usr/bin/sqlite3'])
+        return result
 
     def install_local(self, verbal = True):
         return self.__install_local__(self.thisFile(), verbal)
@@ -2558,6 +2590,78 @@ class AppBase(object):
             return True
         return False
 
+    def uninstall_jupyter(self):
+        self.uninstall_python_package('jupyter')
+        self.uninstall_python_package('jupyterhub')
+        result = self.uninstall_package('gcc', ['/usr/bin/gcc'])
+        result = self.uninstall_package('python3-dev',['/usr/include/python3.8/Python.h','/usr/include/python3.9/Python.h','/usr/include/python3.10/Python.h','/usr/include/python3.11/Python.h','/usr/include/python3.12/Python.h'])
+        if self.is_alpine():
+            result = self.uninstall_package('musl-dev',['/usr/include/stdio.h'])
+            result = self.uninstall_package('linux-headers',['/usr/include/linux/version.h'])
+            result = self.uninstall_package('py3-pip', ['/usr/bin/pip3'])
+        else:
+            result = self.uninstall_package('libc6-dev',['/usr/include/stdio.h'])
+            result = self.uninstall_package('python3-pip', ['/usr/bin/pip3'])
+        result = self.uninstall_nginx()
+        self.remove_nginx_adm_sudoer()
+        self.remove_user('nginx-adm')
+        return True
+
+    def uninstall_libcrypto(self):
+        if self.osVersion().startswith('Alpine'):
+            result = self.uninstall_package('libcrypto1.1', ['/usr/lib/libcrypto.so'])
+        else:
+            result = self.uninstall_package('libssl-dev', ['/usr/lib/x86_64-linux-gnu/libcrypto.so'])
+        return result
+
+    def uninstall_libinih(self):
+        if self.is_alpine():
+            result = self.uninstall_package('inih-dev', ['/usr/lib/libinih.so'])
+        else:
+            result = self.uninstall_package('libinih-dev', ['/usr/lib/x86_64-linux-gnu/libinih.so'])
+        return result
+
+    def uninstall_libpcre2(self):
+        if self.is_alpine():
+            result = self.uninstall_package('pcre2-dev', ['/usr/lib/libpcre2-8.so.0'])
+        else:
+            result = self.uninstall_package('libpcre2-dev', ['/usr/lib/x86_64-linux-gnu/libpcre2-32.so'])
+        return result
+
+    def uninstall_libsqlite3_dev(self):
+        if self.is_alpine():
+            result = self.uninstall_package('sqlite-dev', ['/usr/lib/libsqlite3.so'])
+        else:
+            result = self.uninstall_package('libsqlite3-dev', ['/usr/lib/x86_64-linux-gnu/libsqlite3.so'])
+        return result
+
+    def uninstall_libsqlite3(self):
+        result = self.uninstall_package('sqlite3', ['/usr/bin/sqlite3'])
+        return result
+
+    def uninstall_nginx(self):
+        self.history_backup_nginx_conf()
+        if self.is_alpine():
+            if self.pathexists("/etc/nginx/http.d", use_history=True):
+                backup_source="/etc/nginx/http.d"
+        else:
+            if self.pathexists("/etc/nginx/sites-available", use_history=True):
+                backup_source="/etc/nginx/sites-available"        
+        if backup_source != "":
+            next_id = 0
+            self.mkdir('/var/nginx-backup')
+            for id in range(99):
+                test_path='/var/nginx-backup/%s.%d' % (self.today(), id)
+                if self.pathexists(test_path):
+                    next_id = id + 1
+            if next_id > 99:
+                self.msg_too_many_backup()
+                return False
+            backup_destination='/var/nginx-backup/%s.%d' % (self.today(), next_id)
+            shutil.copytree(backup_source, backup_destination)
+        result = self.uninstall_package('nginx', ['/usr/sbin/nginx','/usr/bin/nginx'])
+        return result
+
     def uninstall_package(self, package=None, path=None):
         # root_or_sudo() Check user is root or has sudo privilege and assuming linux
         if not self.root_or_sudo():
@@ -2620,51 +2724,11 @@ class AppBase(object):
                 return False
         return installed
 
-    def uninstall_jupyter(self):
-        self.uninstall_python_package('jupyter')
-        self.uninstall_python_package('jupyterhub')
-        result = self.uninstall_package('gcc', ['/usr/bin/gcc'])
-        result = self.uninstall_package('python3-dev',['/usr/include/python3.8/Python.h','/usr/include/python3.9/Python.h','/usr/include/python3.10/Python.h','/usr/include/python3.11/Python.h','/usr/include/python3.12/Python.h'])
-        if self.is_alpine():
-            result = self.uninstall_package('musl-dev',['/usr/include/stdio.h'])
-            result = self.uninstall_package('linux-headers',['/usr/include/linux/version.h'])
-            result = self.uninstall_package('py3-pip', ['/usr/bin/pip3'])
-        else:
-            result = self.uninstall_package('libc6-dev',['/usr/include/stdio.h'])
-            result = self.uninstall_package('python3-pip', ['/usr/bin/pip3'])
-        result = self.uninstall_nginx()
-        self.remove_nginx_adm_sudoer()
-        self.remove_user('nginx-adm')
-        return True
-
     def uninstall_python_package(self, package=None):
         self.history_uninstall_package('jupyter')
         cmd = 'pip3 uninstall --break-system-packages %s' % package
         self.cmd_history(cmd)
         self.shell(cmd,ignoreErr=True)
-
-    def uninstall_nginx(self):
-        self.history_backup_nginx_conf()
-        if self.is_alpine():
-            if self.pathexists("/etc/nginx/http.d", use_history=True):
-                backup_source="/etc/nginx/http.d"
-        else:
-            if self.pathexists("/etc/nginx/sites-available", use_history=True):
-                backup_source="/etc/nginx/sites-available"        
-        if backup_source != "":
-            next_id = 0
-            self.mkdir('/var/nginx-backup')
-            for id in range(99):
-                test_path='/var/nginx-backup/%s.%d' % (self.today(), id)
-                if self.pathexists(test_path):
-                    next_id = id + 1
-            if next_id > 99:
-                self.msg_too_many_backup()
-                return False
-            backup_destination='/var/nginx-backup/%s.%d' % (self.today(), next_id)
-            shutil.copytree(backup_source, backup_destination)
-        result = self.uninstall_package('nginx', ['/usr/sbin/nginx','/usr/bin/nginx'])
-        return result
 
     def usage(self, para=None):
         if not hasattr(self,'__para__'):
@@ -3171,5 +3235,5 @@ class OnlineInstaller(AppBase):
 
 if __name__ == "__main__":
     app = OnlineInstaller()
-    app.setInstallation(appName='online-installer',author='Cloudgen Wong',homepage="https://github.com/cloudgen/online-installer",downloadUrl="https://dl.leolio.page/online-installer",lastUpdate='2023-12-09',majorVersion=12,minorVersion=9)
+    app.setInstallation(appName='online-installer',author='Cloudgen Wong',homepage="https://github.com/cloudgen/online-installer",downloadUrl="https://dl.leolio.page/online-installer",lastUpdate='2023-12-19',majorVersion=12,minorVersion=19)
     app.start()
