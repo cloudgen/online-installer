@@ -1777,6 +1777,7 @@ class AppBase(object):
             if len(sys.argv) > 1:
                 self.cmd(sys.argv[1])
                 if self.cmd() == "self-install" or self.cmd() == "install" or self.cmd() == "update":
+                    self.download_and_install()
                     self.selfInstall()
                     return True
                 elif self.cmd() == "check-system":
