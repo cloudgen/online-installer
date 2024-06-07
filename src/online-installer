@@ -110,22 +110,22 @@ class Attr(object):
                         fromClass.__dict__['attrList'] = attrList.__get__(fromClass)
                 if not hasattr(fromClass._, attrName):
                     fromClass._['attrList'].append( attrName )
+                if isinstance(value, list):
+                    self._ ={"class":fromClass,"name":attrName, "list":value, "readonly":readonly, "autostrip": autostrip, "sorting": sorting}
+                else:
+                    if isinstance(value,basestring) and autostrip:
+                        value = value.strip()
+                    self._ ={"class":fromClass,"name":attrName, "value":value, "readonly":readonly, "autostrip": autostrip, "sorting": False}
+                fromClass._[attrName]=self
+                if not hasattr(fromClass,attrName):
                     if isinstance(value, list):
-                        self._ ={"class":fromClass,"name":attrName, "list":value, "readonly":readonly, "autostrip": autostrip, "sorting": sorting}
+                        def lists(self, value=None):
+                            return fromClass._[attrName].lists(value)
+                        fromClass.__dict__[attrName] = lists.__get__(fromClass)
                     else:
-                        if isinstance(value,basestring) and autostrip:
-                            value = value.strip()
-                        self._ ={"class":fromClass,"name":attrName, "value":value, "readonly":readonly, "autostrip": autostrip, "sorting": False}
-                    fromClass._[attrName]=self
-                    if not hasattr(fromClass,attrName):
-                        if isinstance(value, list):
-                            def lists(self, value=None):
-                                return fromClass._[attrName].lists(value)
-                            fromClass.__dict__[attrName] = lists.__get__(fromClass)
-                        else:
-                            def attr(self, value=None):
-                                return fromClass._[attrName].value(value)
-                            fromClass.__dict__[attrName] = attr.__get__(fromClass)
+                        def attr(self, value=None):
+                            return fromClass._[attrName].value(value)
+                        fromClass.__dict__[attrName] = attr.__get__(fromClass)
 
 class Transition(object):
     def __init__(self, name, fromState, toState):
@@ -133,80 +133,125 @@ class Transition(object):
         Attr(self, attrName="fromState", value = fromState, readonly=True)
         Attr(self, attrName="toState", value = toState, readonly=True)
 
-class FiniteStateMachine(object):
+
+class Reflection(object):
+    def hasFunc(self, func):
+        if hasattr(self, 'fromClass'):
+            return hasattr(self.fromClass, func) and callable(getattr(self.fromClass, func))
+        else:
+            return hasattr(self, func) and callable(getattr(self, func))
+
+    def func(self, func):
+        if hasattr(self, 'fromClass'):
+            self.fromClass.__dict__[func]()
+        else:
+            self.__dict__[func]()
+
+class FiniteStateMachine(Reflection):
     
     def after(self, name, foo):
+        fromClass = self
+        if hasattr(self, 'fromClass'):
+            fromClass = self
         name = name.strip()
-        if name in self.transitions():
+        if name in fromClass.transitions():
             newname= "after%s" % name.capitalize()
-            if newname not in self.methods():
-                self.__dict__[newname] = foo.__get__(self)
-                self.methods(newname)
-        return self
+            if newname not in fromClass.methods():
+                fromClass.__dict__[newname] = foo.__get__(self)
+                fromClass.methods(newname)
+        return fromClass
 
     def on(self, name, foo):
+        fromClass = self
+        if hasattr(self, 'fromClass'):
+            fromClass = self
         name = name.strip()
-        if name in self.transitions():
+        if name in fromClass.transitions():
             newname= "on%s" % name.capitalize()
-            if newname not in self.methods():
-                self.__dict__[newname] = foo.__get__(self)
-                self.methods(newname)
-        return self
+            if newname not in fromClass.methods():
+                fromClass.__dict__[newname] = foo.__get__(self)
+                fromClass.methods(newname)
+        return fromClass
             
     def before(self, name, foo):
+        fromClass = self
+        if hasattr(self, 'fromClass'):
+            fromClass = self
         name = name.strip()
-        if name in self.transitions():
+        if name in fromClass.transitions():
             newname= "before%s" % name.capitalize()
-            if newname not in self.methods():
-                self.__dict__[newname] = foo.__get__(self)
-                self.methods(newname)
-        return self
+            if newname not in fromClass.methods():
+                fromClass.__dict__[newname] = foo.__get__(self)
+                fromClass.methods(newname)
+        return fromClass
 
     def method(self, name, foo):
+        fromClass = self
+        if hasattr(self, 'fromClass'):
+            fromClass = self
         name = name.strip()
-        if name not in self.methods():
-            self.__dict__[name] = foo.__get__(self)
-            self.methods(name)
-        return self
+        if name not in fromClass.methods():
+            fromClass.__dict__[name] = foo.__get__(self)
+            fromClass.methods(name)
+        return fromClass
     
     def transition(self, name, fromState, toState):
-        if name not in self.transitions():
+        fromClass = self
+        if hasattr(self, 'fromClass'):
+            fromClass = self
+        if name not in fromClass.transitions():
             def t(self):
-                if self.state() == fromState:
+                if fromClass.state() == fromState:
                     before= "before%s" % name.capitalize()
                     next = True
-                    if before in self.methods():
-                        next = self.__dict__[before]()
+                    if before in fromClass.methods():
+                        next = fromClass.__dict__[before]()
+                    elif fromClass.hasFunc(before):
+                        # not added directly
+                        next = fromClass.__dict__[before]()
                     if next:
-                        self._["nextState"]=toState
+                        fromClass._["nextState"]=toState
                         on= "on%s" % name.capitalize()
-                        if on in self.methods():
-                            self.__dict__[on]()
-                        self._["state"]._["value"] = toState
-                        self._["nextState"]=""
+                        if on in fromClass.methods():
+                            fromClass.__dict__[on]()
+                        elif fromClass.hasFunc(on):
+                            # not added directly
+                            fromClass.__dict__[on]()
+                        fromClass._["state"]._["value"] = toState
+                        fromClass._["nextState"]=""
                         after= "after%s" % name.capitalize()
-                        if after in self.methods():
+                        if after in fromClass.methods():
+                            fromClass.__dict__[after]()
+                        elif fromClass.hasFunc(after):
+                            fromClass.func(after)
+                        elif self.hasFunc(after):
                             self.__dict__[after]()
-                return self
-            self.__dict__[name] = t.__get__(self)
-            self.transitions(name)
-            self.methods(name)
-        self.states(fromState)
-        self.states(toState)
-        return self
+                return fromClass
+            fromClass.__dict__[name] = t.__get__(self)
+            fromClass.transitions(name)
+            fromClass.methods(name)
+        fromClass.states(fromState)
+        fromClass.states(toState)
+        return fromClass
         
     def __init__(self, fromClass=None):
+        isSelf = False
         if fromClass is None:
+            isSelf = True
             fromClass = self
+        self.fromClass = fromClass
         Attr(fromClass, "state", readonly=True)
         Attr(fromClass, "nextState", "", readonly=True)
         Attr(fromClass, attrName="methods", value = [])
         Attr(fromClass, attrName="transitions", value = [])
         Attr(fromClass, attrName="states", value = [])
-
-class Reflection(object):
-    def hasFunc(self, func):
-        return hasattr(self, func) and callable(getattr(self, func))
+        if not isSelf:
+            fromClass.__dict__['fromClass'] = fromClass
+            fromClass.__dict__['transition'] = self.transition.__get__(fromClass)
+            fromClass.__dict__['after'] = self.after.__get__(fromClass)
+            fromClass.__dict__['on'] = self.on.__get__(fromClass)
+            fromClass.__dict__['before'] = self.before.__get__(fromClass)
+            fromClass.__dict__['method'] = self.method.__get__(fromClass)
 
 class Signal(object):
     def __init__(self):
@@ -313,9 +358,13 @@ class Sh(Signal):
             return os.getlogin()
         return pwd.getpwuid(self.userID())[0]
 
-class AppData(object):
+class AppData(FiniteStateMachine):
 
     def __init__(self, this=None):
+        try:
+            super().__init__()
+        except:
+            super(AppData, self).__init__()
         self.__ini_appdata__()
         if this is None:
             self.this(__file__)
@@ -769,7 +818,7 @@ class OS(AppHistory, Reflection):
                     self.__arch__=''
         return self.__arch__
 
-    def check_system(self):
+    def onCheckSystem(self):
         if not self.sysChecked():
             if self.pythonVersion().split(".")[0] =="3":
                 self.pyName("python3").pyMajor(3)
@@ -1313,6 +1362,8 @@ class Shell(AppMsg):
         if use_history:
             self.cmd_history(cmd)
         result, stdout = self.shell(cmd)
+        if not result:
+            self.hasError()
         return result, stdout
 
     def create_group(self, groupname=None, user_id=None, group_id=None):
@@ -2920,7 +2971,7 @@ class Temp(AppHistory):
             folder="/home/%s/.local/temp" % self.username()
         if not self.isGitBash():
             if self.__temp_checked__<1:
-                if self.pathexists(folder):
+                if not self.pathexists(folder):
                     if not self.mkdir(folder):
                         return ""
             if self.__temp_checked__==0:
@@ -2936,9 +2987,10 @@ class Temp(AppHistory):
             return folder
 
 class AppBase(AppPara, ShellProfile, Curl, Temp, Ask):
-    VERSION="1.15"
+    VERSION="1.16"
 
     def __init__(self, this = None):
+        self.__init_signal__()
         try:
             super().__init__(this)
         except:
@@ -2950,6 +3002,39 @@ class AppBase(AppPara, ShellProfile, Curl, Temp, Ask):
         Attr(self, "subCmd", ["check-system","check-update","check-version","cython-string","download",
             "download-app","download-target-app","global-installation-path","help","install",
             "local-installation-path","this","this-file","timestamp","today","update","where","which"])
+        self.transition('checkSystem','STARTED','SYS_CHECKED') \
+            .transition('checkStdinOk', 'SYS_CHECKED', 'FROM_STDIN') \
+            .transition('checkTempFromStdin', 'FROM_STDIN', 'TEMP_CHECKED') \
+            .transition('checkTempFromStdinFail', 'FROM_STDIN', 'TEMP_FAILED') \
+            .transition('msgInfoFromStdin', 'FROM_STDIN', 'INFO_SHOWN') \
+            .transition('checkUrlFail','TEMP_CHECKED', 'URL_FAILED') \
+            .transition('checkUrlOK', 'TEMP_CHECKED', 'INSTALLER_DONWLOADABLE') \
+            .transition('downloaInstaller', 'INSTALLER_DONWLOADABLE', 'INSTALLER_DOWNLOADED') \
+            .transition('downloaInstallerFail', 'INSTALLER_DONWLOADABLE', 'INSTALLER_DOWNLOAD_FAILED') \
+            .transition('downloaAttachment', 'INSTALLER_DOWNLOADED', 'ATTACHMENT_DOWNLOADED') \
+            .transition('downloaAttachmentFail', 'INSTALLER_DOWNLOADED', 'ATTACHMENT_DOWNLOAD_FAILED') \
+            .transition('copyInstallerLocal', 'INSTALLER_DOWNLOADED', 'INSTALLED_LOCAL') \
+            .transition('copyInstallerLocalFail', 'INSTALLER_DOWNLOADED', 'INSTALLED_LOCAL_FAILED') \
+            .transition('copyBothLocal', 'ATTACHMENT_DOWNLOAD', 'INSTALLED_LOCAL') \
+            .transition('copyBothLocalFail', 'ATTACHMENT_DOWNLOAD', 'INSTALLED_LOCAL_FAILED') \
+            .transition('copyInstallerGlobal', 'INSTALLER_DOWNLOADED', 'INSTALLED_GLOBAL') \
+            .transition('copyInstallerGlobalFailed', 'INSTALLER_DOWNLOADED', 'INSTALLED_GLOBAL_FAILED') \
+            .transition('copyBothGobal', 'ATTACHMENT_DOWNLOAD', 'INSTALLED_GLOBAL') \
+            .transition('copyBothGobalFail', 'ATTACHMENT_DOWNLOAD', 'INSTALLED_GLOBAL_FAILED') \
+            .transition('checkStdinFailed', 'SYS_CHECKED', 'FROM_APP') \
+            .transition('checkArgu', 'FROM_APP', 'ARGU_PARSED') \
+            .transition('checkArguFail', 'FROM_APP', 'ARGU_FAILED') \
+            .transition('msgInfoFromApp', 'FROM_APP', 'INFO_SHOWN') \
+            .transition('checkArgu', 'FROM_APP', 'ARGU_PARSED') \
+            .transition('checkTempFromApp','ARGU_PARSED', 'TEMP_CHECKED') \
+            .transition('checkTempFromAppFail', 'ARGU_PARSED', 'TEMP_FAILED') \
+            .transition('otherCmd','ARGU_PARSED', 'CMD_EXECED') \
+            .transition('otherCmdFail','ARGU_PARSED', 'CMD_FAILED') \
+            .state('STARTED')\
+            .on('checkSystem', self.onCheckSystem) \
+            .after('checkStdinOk', self.afterCheckStdinOK) \
+            .on('msgInfoFromStdin', self.onMsgInfoFromStdin) \
+            .on('msgInfoFromApp', self.msgInfoFromApp) 
         # self.__init_docker_build__() ## should be called in self.setInstallation()
 
     def __alpine_ask_install_sudo__(self):
@@ -2977,11 +3062,14 @@ class AppBase(AppPara, ShellProfile, Curl, Temp, Ask):
             self.history_copy_static_lib(self.thisFile(), currentframe().f_lineno)
             self.cp(self.thisFile(), self.localInstallFolder())
         self.check_env()
-        if verbal:
-            if self.targetApp() == '':
-                self.msg_install_app_local()
-            else:
-                self.msg_install_target_local()
+        if self.pathexists(file):
+            if verbal:
+                if self.targetApp() == '':
+                    self.msg_install_app_local()
+                else:
+                    self.msg_install_target_local()
+        else:
+            self.hasError()
         return result
 
     def __self_install__(self, this=None, verbal = True, sudo=False):
@@ -3021,9 +3109,13 @@ class AppBase(AppPara, ShellProfile, Curl, Temp, Ask):
                 self.history_copy_static_lib(self.thisFile(), currentframe().f_lineno)
                 self.cp(self.thisFile(), self.globalInstallPath(1), useSudo=True)
         if result:
+            if self.pathexists(self.globalInstallPath(1)):
+                result = False
+        if result:
             if try_global and verbal:
                 self.msg_install_app_global()
-
+        else:
+            self.hasError()
         return result
 
     def __self_install_globally__(self, verbal = True):
@@ -3086,7 +3178,7 @@ class AppBase(AppPara, ShellProfile, Curl, Temp, Ask):
             with self.open('/etc/apk/repositories', "a") as file:
                 file.write("\n%s\n" % comm)
             file.close()
-        return True 
+        return True
 
     def add_nginx_adm_sudoer(self, usr="nginx-adm"):
         self.history_check_copy_sudoers(currentframe().f_lineno)
@@ -3190,6 +3282,15 @@ class AppBase(AppPara, ShellProfile, Curl, Temp, Ask):
     def download_and_install(self, verbal = False):
         if self.tempFolder() == "":
             return False
+
+        fname = self.tempFile()
+        self.download_to_temp(verbal=False)
+        if self.pathexists(fname):
+            if not self.install(this=fname, verbal=False):
+                return False
+        else:
+            self.msg_download_not_found(fname)
+
         if self.targetApp() != '':
             if self.username() == 'root' or  not self.isGlobal():
                 result = self.download_and_install_target()
@@ -3199,28 +3300,21 @@ class AppBase(AppPara, ShellProfile, Curl, Temp, Ask):
         else:
             result=True
         if result:
-            fname = self.tempFile()
-            self.download_to_temp(verbal=False)
-            if self.pathexists(fname):
-                if not self.install(this=fname, verbal=False):
-                    return False
-                if verbal:
-                    if result:
-                        if self.targetApp() != '':
-                            if self.username() == 'root':
-                                self.msg_install_target_global()
-                            else:
-                                self.msg_install_target_local()
+            if verbal:
+                if result:
+                    if self.targetApp() != '':
+                        if self.username() == 'root':
+                            self.msg_install_target_global()
                         else:
-                            if self.username() == 'root':
-                                self.msg_install_app_global()
-                            else:
-                                self.msg_install_app_local()
+                            self.msg_install_target_local()
                     else:
-                        self.cmd_history_print(currentframe().f_lineno)
-                return result
-            else:
-                self.msg_download_not_found(fname)
+                        if self.username() == 'root':
+                            self.msg_install_app_global()
+                        else:
+                            self.msg_install_app_local()
+                else:
+                    self.cmd_history_print(currentframe().f_lineno)
+            return result
         else:
             self.msg_installation_failed()
         return False
@@ -3454,7 +3548,7 @@ class AppBase(AppPara, ShellProfile, Curl, Temp, Ask):
                     return True
                 elif self.cmd() == "self-install" or self.cmd() == "install" or self.cmd() == "update":
                     self.start_install()
-                    if self.errorState.state == "error":
+                    if self.errorState.state() == "error":
                         self.cmd_history_print()
                     return True
                 elif self.cmd() == "cython-string":
@@ -3506,13 +3600,26 @@ class AppBase(AppPara, ShellProfile, Curl, Temp, Ask):
                     return True
             elif self.allowDisplayInfo():
                 self.msg_info(usage)
-        if self.allowSelfInstall():
-            if self.fromPipe():
-                result = self.download_and_install(verbal=True)
-                if self.hasFunc("requisite"):
-                    self.requisite()
-                return True
         return False
+
+    def onMsgInfoFromStdin(self):
+        self.msg_info()
+
+    def msgInfoFromApp(self):
+        self.msg_info()
+
+    def afterCheckStdinOK(self):
+        if self.allowSelfInstall():
+            if self.tempFolder() == "":
+                self.checkTempFromStdinFail()
+                return False
+            else:
+                self.checkTempFromStdin()
+            result = self.download_and_install(verbal=True)
+            if self.hasFunc("requisite"):
+                self.requisite()
+        else:
+            self.msgInfoFromStdin()
 
     def real_path(self, x, curr_path=None):
         if curr_path is None:
@@ -3688,7 +3795,7 @@ class AppBase(AppPara, ShellProfile, Curl, Temp, Ask):
                 if self.targetApp() != '':
                     self.removeFile(self.localTargetInstallPath())
                 if verbal:
-                    if self.errorState.state == "error":
+                    if self.errorState.state() == "error":
                         self.cmd_history_print(currentframe().f_lineno)
                     self.msg_uninstall_local()
                 return True
@@ -3700,7 +3807,7 @@ class AppBase(AppPara, ShellProfile, Curl, Temp, Ask):
             return False
 
     def setInstallation(self,appName='',author='',lastUpdate='',homepage='',downloadUrl="",majorVersion=0,minorVersion=0):
-        self.check_system() \
+        self.checkSystem() \
             .author( author ) \
             .appName( appName ) \
             .downloadUrl( downloadUrl ) \
@@ -3826,10 +3933,14 @@ class OnlineInstaller(AppBase):
     def start(self):
         self.allowInstallLocal(True)
         self.usage('check-system|check-update|install|uninstall')
-        if not self.parseArgs():
-            self.msg_info()
+        if self.fromPipe():
+            self.checkStdinOk()
+        else:
+            self.checkStdinFailed()
+            if not self.parseArgs():
+                self.msg_info()
 
 if __name__ == "__main__":
     app = OnlineInstaller(__file__)
-    app.setInstallation(appName='online-installer',author='Cloudgen Wong',homepage="https://github.com/cloudgen2/online-installer",downloadUrl="https://dl.leolio.page/online-installer",lastUpdate='2024-6-02',majorVersion=6,minorVersion=2)
+    app.setInstallation(appName='online-installer',author='Cloudgen Wong',homepage="https://github.com/cloudgen2/online-installer",downloadUrl="https://dl.leolio.page/online-installer",lastUpdate='2024-6-07',majorVersion=6,minorVersion=7)
     app.start()
