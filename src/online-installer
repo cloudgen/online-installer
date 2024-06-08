@@ -155,7 +155,7 @@ class FiniteStateMachine(Reflection):
             fromClass = self
         name = name.strip()
         if name in fromClass.transitions():
-            newname= "after%s" % name.capitalize()
+            newname="after" +name[0].upper() + name[1:]
             if newname not in fromClass.methods():
                 fromClass.__dict__[newname] = foo.__get__(self)
                 fromClass.methods(newname)
@@ -167,7 +167,7 @@ class FiniteStateMachine(Reflection):
             fromClass = self
         name = name.strip()
         if name in fromClass.transitions():
-            newname= "on%s" % name.capitalize()
+            newname= "on" +name[0].upper() + name[1:]
             if newname not in fromClass.methods():
                 fromClass.__dict__[newname] = foo.__get__(self)
                 fromClass.methods(newname)
@@ -179,7 +179,7 @@ class FiniteStateMachine(Reflection):
             fromClass = self
         name = name.strip()
         if name in fromClass.transitions():
-            newname= "before%s" % name.capitalize()
+            newname= "before" +name[0].upper() + name[1:]
             if newname not in fromClass.methods():
                 fromClass.__dict__[newname] = foo.__get__(self)
                 fromClass.methods(newname)
@@ -202,7 +202,7 @@ class FiniteStateMachine(Reflection):
         if name not in fromClass.transitions():
             def t(self):
                 if fromClass.state() == fromState:
-                    before= "before%s" % name.capitalize()
+                    before= "before" +name[0].upper() + name[1:]
                     next = True
                     fromClass._["transitionName"]=name
                     fromClass._["fromState"]=fromState
@@ -210,26 +210,16 @@ class FiniteStateMachine(Reflection):
                     fromClass._["nextState"]=""
                     if before in fromClass.methods():
                         next = fromClass.__dict__[before]()
-                    elif fromClass.hasFunc(before):
-                        # not added directly
-                        next = fromClass.__dict__[before]()
                     if next:
                         fromClass._["nextState"]=toState
-                        on= "on%s" % name.capitalize()
+                        on= "on" +name[0].upper() + name[1:]
                         if on in fromClass.methods():
-                            fromClass.__dict__[on]()
-                        elif fromClass.hasFunc(on):
-                            # not added directly
                             fromClass.__dict__[on]()
                         fromClass._["state"]._["value"] = toState
                         fromClass._["nextState"]=""
-                        after= "after%s" % name.capitalize()
+                        after= "after" +name[0].upper() + name[1:]
                         if after in fromClass.methods():
                             fromClass.__dict__[after]()
-                        elif fromClass.hasFunc(after):
-                            fromClass.func(after)
-                        elif self.hasFunc(after):
-                            self.__dict__[after]()
                     fromClass._["transitionName"]=""
                     fromClass._["fromState"]=""
                     fromClass._["toState"]=""
@@ -1963,15 +1953,6 @@ class Installer(Shell):
                             self.cythonString("cpython-%s%s-%s-linux-gnu" % (version_array[0], version_array[1], arch))
         self.pyChecked(True)
 
-    def install(self, this, verbal=False):
-        if self.username() == 'root':
-            return self.__self_install__(this=this, verbal=verbal)
-        elif not self.isGlobal():
-            return self.__install_local__(this=this, verbal=verbal)
-        else:
-            self.msg_global_already()
-            return False
-
     def install_containerd(self):
         return self.install_package('containerd', ['/usr/bin/containerd'])
 
@@ -2014,12 +1995,6 @@ class Installer(Shell):
         if self.is_alpine():
             return self.install_package('linux-headers',['/usr/include/linux/version.h'])
         return True
-
-    def install_local(self, verbal = True):
-        if self.thisFile().endswith(".so"):
-            return self.__install_local__(self.this(), verbal)
-        else:
-            return self.__install_local__(self.thisFile(), verbal)
 
     def install_musl_dev(self):
         if self.is_alpine():
@@ -2500,32 +2475,28 @@ class CheckSystem(Installer):
             super().__init__(this)
         except:
             super(CheckSystem, self).__init__(this)
-        Attr(self, "msgShown", False)
 
-    def msg_system_check(self, title="START"):
-        # msg_system_check(), this message only shown when downloading files
-        if not self.msgShown():
-            self.safeMsg("Now checking your operation system!", title)
-            self.prn("    AppBase Version: %s" % AppBase.VERSION) \
-                .prn("    Python: %s" % self.pythonVersion()) \
-                .prn("    C Library: %s" % self.libcVersion()) \
-                .prn("    Operation System: %s" % self.osVersion()) \
-                .prn("    Architecture: %s" % self.arch()) \
-                .prn("    Current User: %s" % self.username()) \
-                .prn("    Shell: %s" % self.shellCmd()) \
-                .prn("    Python Executable: %s" % self.executable()) \
-                .prn("    python2 location: %s" % self.python2()) \
-                .prn("    python3 location: %s" % self.python3()) \
-                .prn("    conda location: %s" % self.which_cmd('conda', default="")) \
-                .prn("    pyenv location: %s" % self.which_cmd('pyenv', default="")) \
-                .prn("    Inside docker container: %s" % self.is_docker_container()) \
-                .prn("    Cython String: %s" % self.cythonString()) \
-                .prn("    Binary Type: %s" % self.binVer() ) \
-                .prn("    Location: %s" % self.selfLocation() ) 
-            if self.selfLocation() != self.thisFile():
-                self.prn("    ThisFile: %s" % self.thisFile() ) 
-            self.prn("") \
-                .msgShown(True)
+    def msg_system_check(self, title="CHECK SYSTEM"):
+        self.safeMsg("Now checking your operation system!", title)
+        self.prn("    AppBase Version: %s" % AppBase.VERSION) \
+            .prn("    Python: %s" % self.pythonVersion()) \
+            .prn("    C Library: %s" % self.libcVersion()) \
+            .prn("    Operation System: %s" % self.osVersion()) \
+            .prn("    Architecture: %s" % self.arch()) \
+            .prn("    Current User: %s" % self.username()) \
+            .prn("    Shell: %s" % self.shellCmd()) \
+            .prn("    Python Executable: %s" % self.executable()) \
+            .prn("    python2 location: %s" % self.python2()) \
+            .prn("    python3 location: %s" % self.python3()) \
+            .prn("    conda location: %s" % self.which_cmd('conda', default="")) \
+            .prn("    pyenv location: %s" % self.which_cmd('pyenv', default="")) \
+            .prn("    Inside docker container: %s" % self.is_docker_container()) \
+            .prn("    Cython String: %s" % self.cythonString()) \
+            .prn("    Binary Type: %s" % self.binVer() ) \
+            .prn("    Location: %s" % self.selfLocation() ) 
+        if self.selfLocation() != self.thisFile():
+            self.prn("    ThisFile: %s" % self.thisFile() ) 
+        self.prn("") 
 
     def msg_info(self, usage=None):
         if usage is None:
@@ -3016,7 +2987,7 @@ class AppBase(AppPara, ShellProfile, Curl, Temp, Ask):
             self.this(this)
         else:
             self.this(__file__)
-        Attr(self, "subCmd", ["check-version","install","uninstall"])
+        Attr(self, "subCmd", ["check-version","fsm","install","uninstall"])
 
     def __alpine_ask_install_sudo__(self):
         if self.ask_install_sudo():
@@ -3026,106 +2997,6 @@ class AppBase(AppPara, ShellProfile, Curl, Temp, Ask):
             cmd="echo '%wheel ALL=(ALL) ALL' > /etc/sudoers.d/wheel"
             self.cmd_history(cmd)
             result, stdout = self.shell(cmd)
-
-    def __install_local__(self, this = None, verbal = True ):
-        result = False
-        if this is None:
-            this = self.this()
-        if self.isCmd() or self.isGitBash():
-            file = 'C:\\Users\\%s\\AppData\\Local\\Microsoft\\WindowsApps\\%s.bat' % (self.username(),self.appName())
-            result = self.translateScript(source=this, target=file, useSudo=False)
-        else:
-            folder=self.localInstallFolder()
-            self.mkdir(folder)
-            file=self.localInstallPath()
-            result = self.translateScript(source=this, target=file, useSudo=False)
-        if self.thisFile().endswith(".so"):
-            self.history_copy_static_lib(self.thisFile(), currentframe().f_lineno)
-            self.cp(self.thisFile(), self.localInstallFolder())
-        self.check_env()
-        if self.pathexists(file):
-            if verbal:
-                if self.targetApp() == '':
-                    print("...#1....")
-                    self.msg_install_app_local()
-                else:
-                    self.msg_install_target_local()
-        else:
-            self.hasError()
-        return result
-
-    def __self_install__(self, this=None, verbal = True, sudo=False):
-        if this is None:
-            this = self.this()
-        result = False
-        try_global = True
-        if self.username() != 'root':
-            if self.allowInstallLocal():
-                if self.fromPipe():
-                    return False
-                try_global = False
-                result = self.__install_local__()
-            elif sudo:
-                try_global = True
-                result = False
-                if try_global:
-                    if self.osVersion() == 'Alpine':
-                        self.msg_alpine_detected()
-                        self.msg_sudo_failed()
-                        result = False
-                    elif self.sudo_test():
-                        self.msg_sudo()
-                        self.removeGlobalInstaller()
-                        result = self.translateScript(source=this, target=self.globalInstallPath(1),useSudo=True)
-                        if self.thisFile().endswith(".so"):
-                            self.history_copy_static_lib(self.thisFile(), currentframe().f_lineno)
-                            self.cp(self.thisFile(), self.globalInstallPath(1), useSudo=True)
-                    else:
-                        if self.signal() != 2:
-                            self.msg_sudo_failed()
-                        result = False
-        else:
-            self.removeGlobalInstaller()
-            result = self.translateScript(source=this, target=self.globalInstallPath(1))
-            if self.thisFile().endswith(".so"):
-                self.history_copy_static_lib(self.thisFile(), currentframe().f_lineno)
-                self.cp(self.thisFile(), self.globalInstallPath(1), useSudo=True)
-        if result:
-            if self.pathexists(self.globalInstallPath(1)):
-                result = False
-        if result:
-            if try_global and verbal:
-                self.msg_install_app_global()
-        else:
-            self.hasError()
-        return result
-
-    def __self_install_globally__(self, verbal = True):
-        if self.username() == 'root':
-            if self.thisFile().endswith(".so"):
-                self.__self_install__(this=self.this(), verbal=verbal)
-                self.__self_install__(this=self.thisFile(), verbal=verbal)
-            else:
-                self.__self_install__(this=self.thisFile(), verbal=verbal)
-        elif self.ask_not_root():
-            if self.sudo_test():
-                self.msg_sudo()
-                if self.thisFile().endswith(".so"):
-                    self.__self_install__(this=self.this(), verbal=False, sudo=True)
-                    return self.__self_install__(this=self.thisFile(), verbal=verbal, sudo=True)
-                else:
-                    return self.__self_install__(this=self.thisFile(), verbal=verbal, sudo=True)
-            elif self.signal() == 2:
-                return False
-        elif self.username() != 'root':
-            self.msg_root_continue()
-            return False
-        else:
-            if self.thisFile().endswith(".so"): 
-                self.__self_install__(this=self.this(), verbal=False)
-                return self.__self_install__(this=self.thisFile(), verbal=verbal)
-            else:
-                return self.__self_install__(this=self.this(), verbal=verbal)
 
     def add_alpine_nginx_adm_sudoer(self, usr="nginx-adm"):
         self.history_check_copy_sudoers(currentframe().f_lineno)
@@ -3245,7 +3116,6 @@ class AppBase(AppPara, ShellProfile, Curl, Temp, Ask):
             self.msg_latest()
 
     def download_to_temp(self, url=None, file=None, verbal = False):
-        # msg_system_check(), this message only shown when downloading files
         if self.tempFolder() == "":
             return False
         if url is None:
@@ -3539,40 +3409,6 @@ class AppBase(AppPara, ShellProfile, Curl, Temp, Ask):
         if self.pathexists(target_sudoers):
             self.sudoRemoveFile(target_sudoers)
 
-    def selfInstall(self, verbal = True):
-        if self.isGlobal():
-            if self.need_update():
-                self.msg_old_global()
-                if self.ask_update():
-                    return self.download_and_install(verbal=verbal)
-            else:
-                self.msg_latest_global()
-                return False
-        elif self.isLocal():
-            if self.need_update():
-                self.msg_old_local()
-                if self.ask_update():
-                    return self.download_and_install(verbal=verbal)
-            else:
-                self.msg_latest_local()
-                return False
-        elif self.installedGlobal():
-            self.msg_global_already()
-            if self.ask_overwrite_global():
-                if self.thisFile().endswith(".so"):
-                    return self.__self_install__(this=self.this(), verbal=verbal)
-                else:
-                    return self.__self_install__(this=self.thisFile(), verbal=verbal)
-        elif self.installedLocal():
-            self.msg_local_already()
-            if self.ask_overwrite_local():  
-                return self.install_local(verbal)
-        elif self.username() != 'root' and self.allowInstallLocal():
-            if self.ask_local():
-                return self.install_local(verbal)
-        else:
-            return self.__self_install_globally__(verbal)
-
     def selfLocation(self):
         if self.this() != '':
             return self.this()
@@ -3708,24 +3544,6 @@ class AppBase(AppPara, ShellProfile, Curl, Temp, Ask):
         elif self.hasFunc("onCheckSystem"):
             self.onCheckSystem()
 
-    def start_install(self):
-        if self.hasFunc("requisite"):
-            self.infoMsg("System requisite Found!", "REQUESITE")
-            result = self.requisite()
-        else:
-            self.infoMsg("No system requisite Found!", "NO REQUESITE")
-        if self.isLocal() or self.isGlobal():
-            if self.need_update():
-                self.download_and_install()
-                self.selfInstall()
-            else:
-                self.infoMsg("You are using the latest version.", "LATEST VERSION")
-        elif self.selfLocation() != "Unknown location": 
-            self.install(self.selfLocation(), verbal=True)
-        else:
-            self.download_and_install()
-            self.selfInstall()
-
     def tempAppUrl(self):
         if self.downloadUrl()[-1] == '/':
             return "%s%s/%d.%d/%s.tar.gz" % (self.downloadUrl(), self.binVer(), self.majorVersion(),self.minorVersion(), self.targetApp())
@@ -3798,23 +3616,20 @@ class AppBase(AppPara, ShellProfile, Curl, Temp, Ask):
         return result
 
     def usage(self, para=None):
-        if not hasattr(self,'__para__'):
-            self.__para__=''
-            if para is not None:
-                if "|" in para:
-                    for subcmd in para.split("|"):
-                        s = subcmd.strip()
-                        if s !="":
-                            self.subCmd(s)
-                elif "," in para: 
-                    for subcmd in para.split(","):
-                        s = subcmd.strip()
-                        if s !="":
-                            self.subCmd(s)       
         if para is not None:
-            self.__para__=para
+            if "|" in para:
+                for subcmd in para.split("|"):
+                    s = subcmd.strip()
+                    if s !="":
+                        self.subCmd(s)
+            elif "," in para: 
+                for subcmd in para.split(","):
+                    s = subcmd.strip()
+                    if s !="":
+                        self.subCmd(s)
             return self
-        return "%s [%s]" % (self.appExec(),self.__para__)
+        p = '|'.join(self.subCmd())
+        return "%s [%s]" % (self.appExec(), p)
 
 class OnlineInstaller(AppBase):
 
@@ -3841,8 +3656,8 @@ class OnlineInstaller(AppBase):
             .transition('copyBothLocalFail', 'ATTACHMENT_DOWNLOAD', 'INSTALLED_LOCAL_FAILED') \
             .transition('copyInstallerGlobal', 'INSTALLER_DOWNLOADED', 'INSTALLED_GLOBAL') \
             .transition('copyInstallerGlobalFailed', 'INSTALLER_DOWNLOADED', 'INSTALLED_GLOBAL_FAILED') \
-            .transition('copyBothGobal', 'ATTACHMENT_DOWNLOAD', 'INSTALLED_GLOBAL') \
-            .transition('copyBothGobalFail', 'ATTACHMENT_DOWNLOAD', 'INSTALLED_GLOBAL_FAILED') \
+            .transition('copyBothGlobal', 'ATTACHMENT_DOWNLOAD', 'INSTALLED_GLOBAL') \
+            .transition('copyBothGlobalFail', 'ATTACHMENT_DOWNLOAD', 'INSTALLED_GLOBAL_FAILED') \
             .transition('checkStdinFailed', 'SYS_CHECKED', 'FROM_APP') \
             .transition('checkArgu', 'FROM_APP', 'ARGU_PARSED') \
             .transition('checkArguFail', 'FROM_APP', 'NO_VALID_ARGU') \
@@ -3864,8 +3679,8 @@ class OnlineInstaller(AppBase):
             .after('copyBothLocalFail', self.debugInfo) \
             .after('copyInstallerGlobal', self.afterCopyInstallerGlobal) \
             .after('copyInstallerGlobalFailed', self.debugInfo) \
-            .after('copyBothGobal', self.stateChanged) \
-            .after('copyBothGobalFail', self.debugInfo) \
+            .after('copyBothGlobal', self.stateChanged) \
+            .after('copyBothGlobalFail', self.debugInfo) \
             .after('checkStdinFailed', self.afterCheckStdinFailed) \
             .after('checkArgu', self.afterCheckArgu) \
             .after('checkArguFail', self.afterCheckArguFail) \
@@ -3898,8 +3713,9 @@ class OnlineInstaller(AppBase):
     def beforeCheckArgu(self):
         if len(sys.argv) > 1:
             self.cmd(sys.argv[1])
-            if self.cmd()== "check-version" or self.cmd() == "install" or self.cmd() == "uninstall":
-                return True
+            for subCmd in self.subCmd():
+                if subCmd == self.cmd():
+                    return True
         self.checkArguFail()
         return False
 
@@ -3914,7 +3730,10 @@ class OnlineInstaller(AppBase):
 
     def afterCheckSystem(self):
         self.stateChanged("afterCheckSystem")
-        self.msg_system_check()
+        if ('SYSTEM' in os.environ and os.environ['STATE'].lower() == 'show') \
+            or ('system' in os.environ and os.environ['state'].lower() == 'show') \
+            or self.fromPipe():
+            self.msg_system_check()
         if self.fromPipe():
             self.checkStdinOk()
         else:
@@ -3932,6 +3751,11 @@ class OnlineInstaller(AppBase):
                 self.otherCmd()
             elif self.cmd() == "install":
                 self.checkTempFromApp()
+            elif self.cmd() == "fsm":
+                self.prn("Methods: %s" % self.methods())
+                self.prn("Transitions: %s" % self.transitions())
+                self.prn("States: %s" % self.states())
+                self.otherCmd()
             elif self.cmd() == "uninstall":
                 self.selfUninstall(verbal=True)
                 self.otherCmd()
@@ -4017,7 +3841,7 @@ class OnlineInstaller(AppBase):
             if self.targetApp() == '':
                 self.copyInstallerGlobal()
             else:
-                self.copyBothGobalFail()
+                self.copyBothGlobalFail()
 
     def stateChanged(self, func=""):
         if ('STATE' in os.environ and os.environ['STATE'].lower() == 'show') \
@@ -4072,5 +3896,5 @@ class OnlineInstaller(AppBase):
 if __name__ == "__main__":
     app = OnlineInstaller(__file__)
     app.allowInstallLocal(True)
-    app.usage('check-version|install|uninstall')
-    app.setInstallation(appName='online-installer',author='Cloudgen Wong',homepage="https://github.com/cloudgen2/online-installer",downloadUrl="https://dl.leolio.page/online-installer",lastUpdate='2024-6-08',majorVersion=6,minorVersion=8)
+    app.usage('')
+    app.setInstallation(appName='online-installer',author='Cloudgen Wong',homepage="https://github.com/cloudgen/online-installer",downloadUrl="https://dl.leolio.page/online-installer",lastUpdate='2024-6-08',majorVersion=6,minorVersion=8)
