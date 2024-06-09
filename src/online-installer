@@ -3906,5 +3906,4 @@ class OnlineInstaller(AppBase):
 if __name__ == "__main__":
     app = OnlineInstaller(__file__)
     app.allowInstallLocal(True)
-    app.usage('')
     app.setInstallation(appName='online-installer',author='Cloudgen Wong',homepage="https://github.com/cloudgen/online-installer",downloadUrl="https://dl.leolio.page/online-installer",lastUpdate='2024-6-09',majorVersion=6,minorVersion=9)
