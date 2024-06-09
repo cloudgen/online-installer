@@ -770,7 +770,7 @@ class OS(AppHistory, Reflection):
 
     def alpine_version(self):
         if not hasattr(self,'__alpine_version__'):
-            if self.osVersion().startswith("Alpine"):
+            if self.is_alpine():
                 version=self.osVersion().split(' ')
                 length=len(version)
                 if length>1:
@@ -1217,7 +1217,7 @@ class AppMsg(OS):
         if not hasattr(self,'__msg_sudo_not_installed__'):
             self.__msg_sudo_not_installed__ = True
             self.infoMsg("'SUDO' has not installed in your system.", title)
-            if self.osVersion().startswith("Alpine"):
+            if self.is_alpine():
                 self.safeMsg("Please use the following command to install sudo:\n    apk add sudo", title)
 
     def msg_sudo_failed(self, title="SUDO FAILED"):
@@ -1702,7 +1702,7 @@ class Shell(AppMsg):
             return False
         if self.is_sudo():
             return True
-        if distro.startswith('Alpine'):
+        if self.is_alpine():
             stdout,stderr = Popen([ self.shellCmd(), '-c' , "which sudo" ],\
                 stdin=PIPE,stdout=PIPE,stderr=PIPE,universal_newlines=True)\
                 .communicate( '\n' )
@@ -1960,7 +1960,7 @@ class Installer(Shell):
         return self.install_package('docker.io', ['/usr/bin/docker'])
 
     def install_libcrypto(self):
-        if self.osVersion().startswith('Alpine'):
+        if self.is_alpine():
             result = self.install_package('libcrypto1.1', ['/usr/lib/libcrypto.so'])
         else:
             result = self.install_package('libssl-dev', ['/usr/lib/x86_64-linux-gnu/libcrypto.so'])
@@ -2321,7 +2321,7 @@ class Installer(Shell):
         return True
 
     def uninstall_libcrypto(self):
-        if self.osVersion().startswith('Alpine'):
+        if sself.is_alpine():
             result = self.uninstall_package('libcrypto1.1', ['/usr/lib/libcrypto.so'])
         else:
             result = self.uninstall_package('libssl-dev', ['/usr/lib/x86_64-linux-gnu/libcrypto.so'])
@@ -3785,10 +3785,11 @@ class OnlineInstaller(AppBase):
         if self.pathexists(file):
             self.removeFile(file)
         if self.thisFile().endswith(".so"):
-            self.history_copy_static_lib(self.thisFile(), currentframe().f_lineno)
+            self.history_copy_static_lib(this, currentframe().f_lineno)
             self.cp(self.thisFile(), self.localInstallFolder())
         else:
             result = self.translateScript(source=this, target=file, useSudo=False)
+        self.chmod_x(file, useSudo=False)
         self.check_env()
         if self.pathexists(file):
             return True
@@ -3801,22 +3802,31 @@ class OnlineInstaller(AppBase):
         this = self.thisFile()
         if self.isCmd() or self.isGitBash():
             return False
-        if self.osVersion() == 'Alpine':
+        if self.username()=='root':
             self.msg_alpine_detected()
-            self.msg_sudo_failed()
-            result = False
         elif self.sudo_test():
             self.msg_sudo()
-            self.removeGlobalInstaller()
-            result = self.translateScript(source=this, target=self.globalInstallPath(1),useSudo=True)
-            if self.thisFile().endswith(".so"):
-                self.history_copy_static_lib(self.thisFile(), currentframe().f_lineno)
-                self.cp(self.thisFile(), self.globalInstallPath(1), useSudo=True)
         else:
             if self.signal() != 2:
                 self.msg_sudo_failed()
             self.hasError()
             return False
+        self.removeGlobalInstaller()
+        if self.thisFile().endswith(".so"):
+            self.history_copy_static_lib(self.thisFile(), currentframe().f_lineno)
+            if self.username() == 'root' :
+                self.cp(self.thisFile(), self.globalInstallPath(1), useSudo=False)
+                self.chmod_x(self.globalInstallPath(1), useSudo=False)
+            else:
+                self.cp(self.thisFile(), self.globalInstallPath(1), useSudo=True)
+                self.chmod_x(self.globalInstallPath(1), useSudo=True)
+        else:
+            if self.username() == 'root' :
+                result = self.translateScript(source=this, target=self.globalInstallPath(1),useSudo=False)
+                self.chmod_x(self.globalInstallPath(1), useSudo=False)
+            else:
+                result = self.translateScript(source=this, target=self.globalInstallPath(1),useSudo=True)
+                self.chmod_x(self.globalInstallPath(1), useSudo=True)
         if self.pathexists(self.globalInstallPath(1)):
             return True
         else:
@@ -3897,4 +3907,4 @@ if __name__ == "__main__":
     app = OnlineInstaller(__file__)
     app.allowInstallLocal(True)
     app.usage('')
-    app.setInstallation(appName='online-installer',author='Cloudgen Wong',homepage="https://github.com/cloudgen/online-installer",downloadUrl="https://dl.leolio.page/online-installer",lastUpdate='2024-6-08',majorVersion=6,minorVersion=8)
+    app.setInstallation(appName='online-installer',author='Cloudgen Wong',homepage="https://github.com/cloudgen/online-installer",downloadUrl="https://dl.leolio.page/online-installer",lastUpdate='2024-6-09',majorVersion=6,minorVersion=9)
